@@ -1,0 +1,16 @@
+{
+  "name": "etcytal-webcounter",
+  "version": "1.0.0",
+  "description": "Contador de 'etc y tal' del profesor",
+  "author": "José Ángel",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "keywords": ["counter", "education", "nextjs", "react"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joseangelalejo/etcytal-webcounter"
+  }
+}
