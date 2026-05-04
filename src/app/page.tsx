@@ -48,6 +48,40 @@ export default function Home() {
     fetchData();
   }, [todayKey]);
 
+  // Verificar cambio de día cada minuto
+  useEffect(() => {
+    let lastKnownDate = todayKey;
+    
+    const dateCheckInterval = setInterval(() => {
+      const currentDate = new Date().toISOString().split("T")[0];
+      
+      // Si cambió el día, refrescar datos
+      if (currentDate !== lastKnownDate) {
+        lastKnownDate = currentDate;
+        // Forzar un re-render para actualizar todayKey
+        setLoading(true);
+        
+        setTimeout(async () => {
+          try {
+            const response = await fetch("/api/data");
+            const jsonData = await response.json();
+            setData(jsonData);
+            
+            const serverCount = jsonData[currentDate] || 0;
+            setTodayCount(serverCount);
+            localStorage.setItem(`counter-${currentDate}`, String(serverCount));
+          } catch (error) {
+            console.error("Error refrescando datos al cambiar de día:", error);
+          } finally {
+            setLoading(false);
+          }
+        }, 100);
+      }
+    }, 60000); // Verificar cada minuto
+
+    return () => clearInterval(dateCheckInterval);
+  }, [todayKey]);
+
   // Guardar cambios en el servidor cuando todayCount cambia
   useEffect(() => {
     if (loading) return; // No guardar durante la carga inicial
