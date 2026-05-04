@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import CounterDisplay from "@/components/CounterDisplay";
 import CounterButton from "@/components/CounterButton";
 import HistoryLog from "@/components/HistoryLog";
@@ -13,52 +13,92 @@ export default function Home() {
   const [data, setData] = useState<CounterData>({});
   const [todayCount, setTodayCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Obtener datos iniciales
+  const today = new Date();
+  const todayKey = today.toISOString().split("T")[0];
+
+  // Obtener datos iniciales desde la API
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("/data.json");
+        const response = await fetch("/api/data");
         const jsonData = await response.json();
         setData(jsonData);
 
-        // Cargar contador de hoy desde localStorage
-        const today = new Date();
-        const todayKey = today.toISOString().split("T")[0];
-        const savedCount =
-          localStorage.getItem(`counter-${todayKey}`) ||
-          String(jsonData[todayKey] || 0);
-        setTodayCount(Number(savedCount));
+        // Usar el valor del servidor como fuente de verdad
+        const serverCount = jsonData[todayKey] || 0;
+        setTodayCount(serverCount);
+        
+        // Guardar en localStorage como caché
+        localStorage.setItem(`counter-${todayKey}`, String(serverCount));
       } catch (error) {
         console.error("Error cargando datos:", error);
+        
+        // Fallback a localStorage si la API falla
+        const cachedCount = localStorage.getItem(`counter-${todayKey}`);
+        if (cachedCount) {
+          setTodayCount(Number(cachedCount));
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
+  }, [todayKey]);
+
+  // Guardar cambios en el servidor cuando todayCount cambia
+  useEffect(() => {
+    if (loading) return; // No guardar durante la carga inicial
+    
+    const saveToServer = async () => {
+      setIsSyncing(true);
+      try {
+        const response = await fetch("/api/data", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            [todayKey]: todayCount,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setData(result.data);
+          // Actualizar localStorage con los datos del servidor
+          localStorage.setItem(`counter-${todayKey}`, String(todayCount));
+        } else {
+          console.error("Error guardando datos en el servidor");
+        }
+      } catch (error) {
+        console.error("Error sincronizando contador:", error);
+        // El contador local se mantiene incluso si falla la sincronización
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    // Usar un debounce para evitar demasiadas peticiones
+    const debounceTimer = setTimeout(saveToServer, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [todayCount, todayKey, loading]);
+
+  const handleIncrement = useCallback(() => {
+    setTodayCount((prev) => prev + 1);
   }, []);
 
-  // Guardar contador en localStorage cuando cambie
-  useEffect(() => {
-    const today = new Date();
-    const todayKey = today.toISOString().split("T")[0];
-    localStorage.setItem(`counter-${todayKey}`, String(todayCount));
-  }, [todayCount]);
-
-  const handleIncrement = () => {
-    setTodayCount((prev) => prev + 1);
-  };
-
-  const handleDecrement = () => {
+  const handleDecrement = useCallback(() => {
     if (todayCount > 0) {
       setTodayCount((prev) => prev - 1);
     }
-  };
+  }, [todayCount]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setTodayCount(0);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -84,6 +124,13 @@ export default function Home() {
         {/* Card principal */}
         <div className="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl p-8 mb-8 border border-white/20">
           <CounterDisplay count={todayCount} />
+
+          {/* Indicador de sincronización */}
+          {isSyncing && (
+            <div className="text-center mt-4 text-sm text-white/60">
+              Sincronizando...
+            </div>
+          )}
 
           {/* Botones de control */}
           <div className="flex gap-4 justify-center mt-8">

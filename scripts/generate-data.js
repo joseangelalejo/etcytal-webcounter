@@ -48,11 +48,12 @@ function generateInitialData() {
 }
 
 const initialData = generateInitialData();
-const dataPath = path.join(__dirname, 'public', 'data.json');
+// Ruta correcta: carpeta public en la raíz del proyecto (parent del scripts/)
+const dataPath = path.join(__dirname, '..', 'public', 'data.json');
 
 // Crear directorio public si no existe
-if (!fs.existsSync(path.join(__dirname, 'public'))) {
-  fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
+if (!fs.existsSync(path.join(__dirname, '..', 'public'))) {
+  fs.mkdirSync(path.join(__dirname, '..', 'public'), { recursive: true });
 }
 
 // Guardar data.json
